@@ -1,0 +1,312 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لعبة المكعبات</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #111b40;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  user-select: none;
+}
+
+h1 {
+  color: #53ff65;
+  text-shadow: 0 0 12px #00ff44;
+  margin: 22px 0 5px;
+}
+
+#score {
+  font-size: 23px;
+  margin: 12px;
+}
+
+#board {
+  width: min(94vw, 440px);
+  aspect-ratio: 1;
+  margin: 15px auto;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 3px;
+  padding: 5px;
+  background: #202d58;
+  border: 3px solid #456bcf;
+  border-radius: 5px;
+  box-shadow: 0 0 20px #254ac0;
+}
+
+.cell {
+  background: #1b264a;
+  border-radius: 3px;
+  min-width: 0;
+}
+
+.block {
+  background: linear-gradient(
+    135deg, #8aff8a 0%, #22e52e 28%,
+    #00bc20 70%, #087c23 100%
+  );
+  border: 2px solid #087e27;
+  box-shadow: inset 0 3px 2px #b1ffb1;
+}
+
+#pieces {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  margin: 20px auto;
+  min-height: 105px;
+}
+
+.piece {
+  display: grid;
+  grid-template-columns: repeat(3, 23px);
+  grid-template-rows: repeat(3, 23px);
+  gap: 3px;
+  padding: 8px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.piece.selected {
+  border-color: #fff;
+  background: #293d70;
+}
+
+.mini {
+  border-radius: 3px;
+  background: transparent;
+}
+
+.mini.filled {
+  background: linear-gradient(135deg, #91ffff, #00a9f0, #0758b0);
+  border: 2px solid #1675d6;
+}
+
+button {
+  background: #19d83b;
+  color: #071b13;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 18px;
+  margin-bottom: 25px;
+}
+
+p { color: #d5e0ff; }
+</style>
+</head>
+
+<body>
+
+<h1>💎 CUBE BLOCKS 💎</h1>
+<div id="score">النقاط: 0</div>
+
+<div id="board"></div>
+
+<p>اختر قطعة، ثم اضغط مكان وضعها</p>
+<div id="pieces"></div>
+
+<button onclick="restart()">لعبة جديدة ↻</button>
+
+<script>
+const board = document.getElementById("board");
+const piecesBox = document.getElementById("pieces");
+const scoreBox = document.getElementById("score");
+
+const N = 10;
+let cells = [];
+let score = 0;
+let pieces = [];
+let selected = -1;
+let colors = ["green", "blue", "orange", "purple"];
+
+const shapes = [
+  [[0,0]],
+  [[0,0],[0,1]],
+  [[0,0],[1,0]],
+  [[0,0],[0,1],[0,2]],
+  [[0,0],[1,0],[2,0]],
+  [[0,0],[0,1],[1,0],[1,1]],
+  [[0,0],[1,0],[2,0],[2,1]],
+  [[0,0],[0,1],[0,2],[1,1]],
+  [[0,0],[1,0],[1,1],[2,1]],
+  [[0,0],[0,1],[0,2],[1,0]],
+  [[0,0],[1,0],[2,0],[3,0]],
+  [[0,0],[0,1],[1,1],[1,2]]
+];
+
+function restart() {
+  score = 0;
+  selected = -1;
+  cells = Array(N * N).fill(null);
+  board.innerHTML = "";
+
+  for (let i = 0; i < N * N; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.onclick = () => place(i);
+    board.appendChild(cell);
+  }
+
+  makePieces();
+  render();
+}
+
+function makePieces() {
+  pieces = Array.from({length: 3}, () => ({
+    shape: shapes[Math.floor(Math.random() * shapes.length)],
+    color: colors[Math.floor(Math.random() * colors.length)]
+  }));
+  selected = -1;
+  renderPieces();
+}
+
+function renderPieces() {
+  piecesBox.innerHTML = "";
+
+  pieces.forEach((piece, index) => {
+    const el = document.createElement("div");
+    el.className = "piece" +
+      (selected === index ? " selected" : "");
+
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const mini = document.createElement("div");
+        mini.className = "mini";
+
+        if (piece.shape.some(([y,x]) => y === r && x === c)) {
+          mini.classList.add("filled");
+          mini.style.filter =
+            piece.color === "orange" ? "hue-rotate(100deg)" :
+            piece.color === "purple" ? "hue-rotate(230deg)" :
+            piece.color === "green" ? "hue-rotate(65deg)" : "";
+        }
+
+        el.appendChild(mini);
+      }
+    }
+
+    el.onclick = () => {
+      selected = index;
+      renderPieces();
+    };
+
+    piecesBox.appendChild(el);
+  });
+}
+
+function place(index) {
+  if (selected < 0 || !pieces[selected]) return;
+
+  const row = Math.floor(index / N);
+  const col = index % N;
+  const shape = pieces[selected].shape;
+
+  const positions = shape.map(([y,x]) => ({
+    r: row + y, c: col + x
+  }));
+
+  const valid = positions.every(p =>
+    p.r < N && p.c < N &&
+    cells[p.r * N + p.c] === null
+  );
+
+  if (!valid) return;
+
+  positions.forEach(p => {
+    cells[p.r * N + p.c] = pieces[selected].color;
+  });
+
+  score += shape.length * 10;
+  pieces[selected] = null;
+  selected = -1;
+
+  clearLines();
+
+  if (pieces.every(p => p === null)) makePieces();
+
+  render();
+  renderPieces();
+
+  if (!canPlay()) {
+    setTimeout(() => alert("انتهت اللعبة! نقاطك: " + score), 100);
+  }
+}
+
+function clearLines() {
+  let fullRows = [];
+  let fullCols = [];
+
+  for (let r = 0; r < N; r++) {
+    if (cells.slice(r*N, r*N+N).every(Boolean))
+      fullRows.push(r);
+  }
+
+  for (let c = 0; c < N; c++) {
+    let full = true;
+    for (let r = 0; r < N; r++) {
+      if (!cells[r*N+c]) full = false;
+    }
+    if (full) fullCols.push(c);
+  }
+
+  fullRows.forEach(r => {
+    for (let c = 0; c < N; c++) cells[r*N+c] = null;
+  });
+
+  fullCols.forEach(c => {
+    for (let r = 0; r < N; r++) cells[r*N+c] = null;
+  });
+
+  score += (fullRows.length + fullCols.length) * 100;
+}
+
+function canPlay() {
+  return pieces.some(piece => piece &&
+    piece.shape.some(() => true) &&
+    cells.some((_, i) => {
+      const row = Math.floor(i/N), col = i%N;
+      return piece.shape.every(([y,x]) =>
+        row+y < N && col+x < N &&
+        cells[(row+y)*N+col+x] === null
+      );
+    })
+  );
+}
+
+function render() {
+  [...board.children].forEach((cell, i) => {
+    cell.className = "cell";
+    if (cells[i]) {
+      cell.classList.add("block");
+      cell.style.background =
+        cells[i] === "orange" ?
+        "linear-gradient(135deg,#ffbd63,#ff6a16,#b92e08)" :
+        cells[i] === "purple" ?
+        "linear-gradient(135deg,#e9a5ff,#a23be9,#6125a8)" :
+        cells[i] === "blue" ?
+        "linear-gradient(135deg,#91ffff,#00a9f0,#0758b0)" :
+        "";
+    }
+  });
+
+  scoreBox.textContent = "النقاط: " + score;
+}
+
+restart();
+</script>
+
+</body>
+</html>
